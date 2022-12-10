@@ -13,11 +13,11 @@ your input folder `din` should have following structure, which is similiar to Hu
 │   │   ├── aparc.a2009s+aseg.nii.gz # Destrieux atlas-based cortical parcellation
 │   │   ├── aparc+aseg.nii.gz # Desikan-Killiany atlas-based cortical parcellation
 │   │   ├── brainmask_fs.nii.gz
-          │   ├── Diffusion # diffusion image folder
-          │   │   ├── bvals # bval file
-          │   │   ├── bvecs # bvec file
-          │   │   ├── data.nii.gz # dwi data (should already be eddy and distortion corrected)
-          │   │   └── nodif_brain_mask.nii.gz
+│   │   ├── Diffusion # diffusion image folder
+│   │   │   ├── bvals # bval file
+│   │   │   ├── bvecs # bvec file
+│   │   │   ├── data.nii.gz # dwi data (should already be eddy and distortion corrected)
+│   │   │   └── nodif_brain_mask.nii.gz
 
 ```
 Note: It's okay to have extra irrelavant files here and there than specified above. The code will just ignore them.
