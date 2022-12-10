@@ -2,17 +2,17 @@ defaults:
   - alg: hcp # use alg/hcp.yaml as default
   - io: hcp
   - atlas: hcp
+  - _self_ # the config defined below this will override the default
 
-# the following will override the default
 # check out the default config files (e.g., conf/io/hcp.yaml for more details
 
 io:
-  din: /mnt/ssd2/Projects/ThaParc/data/MS_DIFF/R01PILOT_221114
-  dout: /mnt/ssd2/Projects/ThaParc/data/MS_DIFF/R01PILOT_221114/dilate_roi
-  subid: R01PILOT_221114
+  din: data/991267 # input directory. the data structure should be similar to the Human Connectome Project dataset. Please see Readme for more details,
+  dout: data/results/991267/run2 # output directory
+  subid: 991267 # subject id
 
 alg:
   tr:
-    select: 100000
+    select: 500000
   res: 1.125
   dilate_roi: 0

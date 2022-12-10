@@ -1,36 +1,17 @@
-from dipy.tracking import utils
 from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.tracking.utils import _mapping_to_voxel, _to_voxel_coordinates
-
-from nilearn.image import resample_img
-
 import nibabel as nib
 import numpy as np
 import os
 from os.path import join
-from dipy.core.gradients import gradient_table
-from dipy.io.gradients import read_bvals_bvecs
-from dipy.io.image import load_nifti, load_nifti_data, save_nifti
+from dipy.io.image import load_nifti
 from dipy.tracking.streamline import set_number_of_points
-
-import random
 import subprocess
-from glob import glob
-from easydict import EasyDict
 import pandas as pd
-import Unsupervised.lib.dti_utils as dtils
-from path import Path
+import dti_utils as dtils
 import scipy.ndimage as ndi
-import shutil
 import warnings
 from FsLut import FsLut
-from FOD import FOD
-"""
-1. read and set neccessary file path
-2. group and prepare the labels (seg) for target region
-3. do tractography using mrtrix
-4. compute connectivity given the streamlines and target labels
-"""
 import logging
 from timeit import default_timer as timer
 import sys
@@ -38,6 +19,12 @@ from typing import List, Tuple, Dict, Optional, Union
 
 
 class ConnectivityAnalysisHCP(object):
+    """ Overview of pipeline
+    1. read and set neccessary file path
+    2. group and prepare the labels (seg) for target region
+    3. do tractography using mrtrix
+    4. compute connectivity given the streamlines and target labels
+    """
     def __init__(self, args):
         self.args = args
 
@@ -49,12 +36,11 @@ class ConnectivityAnalysisHCP(object):
 
         self.fslut = FsLut()
         self.lut =  None
-
-        self.fdimg = ""
-        self.fbvec = ""
-        self.fbval = ""
-        self.fseg = ""
-        self.fbrainmask = ""
+        self.fdimg = None
+        self.fbvec = None
+        self.fbval = None
+        self.fbrainmask = None
+        self.fseg = None
 
         self.setup_folder()
 
@@ -167,20 +153,6 @@ class ConnectivityAnalysisHCP(object):
             f"maskfilter -npass {n_dilate} {fmask} dilate {outfile} -force".split())
         return outfile
 
-    # def bbox_tha_mask(self, margin = 64):
-    #     in_name = join(self.dout, "tha_bimask.nii.gz")
-    #     seg_data, _, seg = load_nifti(in_name, return_img=True)
-    #     dilated_data = np.zeros_like(seg_data)
-    #     c = np.array([120, 147, 107])
-    #     x0, y0, z0 = c - margin
-    #     x1, y1, z1 = c + margin
-    #
-    #     dilated_data[x0:x1,y0:y1,z0:z1] = 1
-    #     out_name = join(self.dout, f"tha_bimask_bbox_{margin}.nii.gz")
-    #     nib.Nifti1Image(dilated_data.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
-    #     return dilated_data, out_name
-
-
     def resample(self, fimg, suffix="default", res=None, tempimg=None, interp="linear"):
         """use mrgrid to perform resampling. During downsampling, mrgrid will handle aliasing problem"""
         if res and tempimg is None:
@@ -222,7 +194,6 @@ class ConnectivityAnalysisHCP(object):
 
     def run(self):
         """ when everything is prepared, then run!
-
         """
         logger = logging.getLogger('root')
         # check output dir and see if it's already exist
@@ -331,15 +302,15 @@ class ConnectivityAnalysisHCP(object):
 
             if self.args.io.save_all:
                 print("writing to ", self.dout)
-                out_name = join(self.dout, f"{target_name}_denmap.nii.gz")
-                nib.Nifti1Image(dms.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
-                out_name = join(self.dout, f"{target_name}_seedfrommap.nii.gz")
-                nib.Nifti1Image(seedfroms.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
+                # out_name = join(self.dout, f"{target_name}_denmap.nii.gz")
+                # nib.Nifti1Image(dms.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
+                # out_name = join(self.dout, f"{target_name}_seedfrommap.nii.gz")
+                # nib.Nifti1Image(seedfroms.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
                 out_name = join(self.dout, f"{target_name}_passthromap.nii.gz")
                 nib.Nifti1Image(passthros.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
 
-            self.parc_from_stack_of_maps(dms, template=seg, tha_mask=tha_mask, kw="denmap")
-            self.parc_from_stack_of_maps(seedfroms, template=seg, tha_mask=tha_mask, kw="seedfrommap")
+            # self.parc_from_stack_of_maps(dms, template=seg, tha_mask=tha_mask, kw="denmap")
+            # self.parc_from_stack_of_maps(seedfroms, template=seg, tha_mask=tha_mask, kw="seedfrommap")
             self.parc_from_stack_of_maps(passthros, template=seg, tha_mask=tha_mask, kw="passthromap")
 
         timer3 = timer()
@@ -370,85 +341,20 @@ class ConnectivityAnalysisHCP(object):
 
         return counts, seed_from_count
 
-from argparse import ArgumentParser, Namespace
-
-def add_parser():
-    parser = ArgumentParser()
-    # parser.add_argument('--name', type=str, default="fill_exp_name_here",
-    #                     help="the experiment name, which is used to differetiate each run")
-    parser.add_argument('--din', type=str, default="",
-                        help="input case folder: xx/subjid")
-    parser.add_argument('--dout', type=str, default="",
-                        help="where to save output files")
-    parser.add_argument('--sr', type=float, default=0,
-                        help="compute features on higher resolution image gird?")
-
-    parser.add_argument('--seg,cparc', type=str, default="Desikan", choices=["Desikan", "Destrieux"],
-                        help="which cortical parcellation is used.")
-
-    parser.add_argument('--sep_lr', type=int, default=0,
-                        help="if labels in seg labeled left and right hemisphere seperately, do we want to keep them seperated?")
-
-    parser.add_argument('--res', type=float, default=2.0,
-                        help="resample image to the res")
-
-    parser.add_argument('--tr_select', type=int, default=100000,
-                        help="number of streamlines")
-    parser.add_argument('--tr_seedtha', type=int, default=1,
-                        help="1-seed inside thalamus. 0-seed in white matter")
-    parser.add_argument('--con_normalize', type=int, default=0,
-                        help="whether normalize counts by area of cortical region")
-    # parser.add_argument('--tr_dilate_thamask', type=int, default=0,
-    #                     help="dilate thalamus mask for seeding? if so, by how many voxels")
-    # parser.add_argument('--tr_bbox_thamask', type=int, default=0,
-    #                     help="use the bbox as the seed region? also see --margin")
-    # parser.add_argument('--margin', type=int, default=64,
-    #                     help="use the bbox as the seed region?")
-
-    parser.add_argument('--up_factor', type=float, default=1.0,
-                        help="upsampling the streamlines for higher resolution grid")
-
-    parser.add_argument('--tr_dilate_targetmask', type=int, default=0,
-                        help="dilate cortical mask? if so, by how many voxels")
-    parser.add_argument('--rm_exist', type=int, default=1,
-                        help="if outdir is exsiting, do we want to remove the existing folder and make a new one.")
-    parser.add_argument('--save_all', type=int, default=1,
-                        help="Besides parc results, this will also save probility maps. Turn this off when parc is the only your interest")
-    return parser
-
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-@hydra.main(version_base=None, config_path="../conf", config_name="config")
+@hydra.main(version_base="1.2", config_path="../conf", config_name="config")
 def main(cfg : DictConfig) -> None:
-    # args = EasyDict()
-    # args["din"] = "/mnt/ssd2/AllDatasets/HCP102/991267"
-    # args["dout"] = "/mnt/ssd2/Projects/ThaParc/data/cache/991267/default"
-    # args["tr_select"] = 1000
-    # args["tr_seedtha"] = True
-    # args["con_normalize"] = False
-    # args["sr"] = 1.25
-    # args["rm_exist"] = False
-    # args["seg"] = "Desikan"
-    # args["sep_lr"] = False
-    # args["res"] = 2.0
-    # args["save_all"] = 1
-    # args["tr_dilate_targetmask"] = 0
-    # args["up_factor"] = 1.5
-
-    # parser = add_parser()
-    # args = parser.parse_args()
-    # args = EasyDict(vars(args))
     print(OmegaConf.to_yaml(cfg))
     ca = ConnectivityAnalysisHCP(cfg)
 
+    # set up logging
     file_handler = logging.FileHandler(filename=f'{ca.dout}/debug.log')
     stdout_handler = logging.StreamHandler(sys.stdout)
-
     formatter = logging.Formatter(fmt='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
     stdout_handler.setFormatter(formatter)
-    # handlers = [file_handler, stdout_handler]
     logger = logging.getLogger('root')
     logger.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
@@ -456,7 +362,7 @@ def main(cfg : DictConfig) -> None:
 
     ca.run()
 
-"""python xx.py io.din=/mnt/ssd2/AllDatasets/HCP102P/991267 io.dout=/mnt/ssd2/Projects/ThaParc/data/cache/991267/default6"""
+"""python src/ConnectivityAnalysis.py io.din=/mnt/ssd2/AllDatasets/HCP102/991267 io.dout=data/results/991267/run1 io.subid=99126"""
 if __name__ == "__main__":
     main()
 
