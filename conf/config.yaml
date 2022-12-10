@@ -1,0 +1,18 @@
+defaults:
+  - alg: hcp # use alg/hcp.yaml as default
+  - io: hcp
+  - atlas: hcp
+
+# the following will override the default
+# check out the default config files (e.g., conf/io/hcp.yaml for more details
+
+io:
+  din: /mnt/ssd2/Projects/ThaParc/data/MS_DIFF/R01PILOT_221114
+  dout: /mnt/ssd2/Projects/ThaParc/data/MS_DIFF/R01PILOT_221114/dilate_roi
+  subid: R01PILOT_221114
+
+alg:
+  tr:
+    select: 100000
+  res: 1.125
+  dilate_roi: 0
