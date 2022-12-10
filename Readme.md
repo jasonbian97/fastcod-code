@@ -1,5 +1,18 @@
 # FastCod
 
+FastCod can efficiently compute the diffusion-based connectivity feature between brain regions. It is a open-source tool and written in python. If you use diffusion-weighted MRI and tractography in your research or clinical practice, this tool can possibly save you lots of time!
+
+Key features:
+
+- Over 30x speedup than traditional method on computing connectivity
+- Run from command line, server-friendly
+- Easy to work with MRtrix3, fsl, and freesurfer
+- Flexible pipeline design: you can flexibly run one, several, or whole pipline: dMRI preprocessing, tractography, align with anatomical images, computing connectivity
+- Super-resolve ability: you can get high-res connectity features even if you are dealt with low resolution dMRI (e.g., 2mm)
+- Multiple visualization tools for QA
+
+For tutorial, blogs, and more information, please visit our [project page](https://jasonbian97.github.io/fastcod/)
+
 # Quick Start
 1. set up IO path. There are two ways to do that:
    1. modify the `config.yaml` file in the `conf` folder.
