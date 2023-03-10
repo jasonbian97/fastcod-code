@@ -72,8 +72,14 @@ data/
 ```
 
 ## MODE 2 [under construction]
+This mode assumes you have already has your own:
+- FOD image, which will be used for tractography
+- source mask, which is the mask of the source region where seeds will be placed
+- target parcellation, which is the parcellation of the target region (e.g. Cortex) where fibers will be terminated.
 
-
+I haven't been able to work on this mode yet. But it should not be very hard to customize your own. For example, take a look at the code 
+[snippet](https://github.com/jasonbian97/fastcod-code/blob/f26c2ebabaa2344f4490d707ab1c050c21608dc3/src/ConnectivityAnalysis.py#L254)
+where I start to compute connectivity.
 
 # How to cite
 If you find this is useful for your research, please cite our paper:
@@ -86,3 +92,6 @@ If you find this is useful for your research, please cite our paper:
   year={2023}
 }
 ```
+
+# Contact
+If you have any questions, please contact me at jasonbian.zx@gmail.com
