@@ -251,7 +251,7 @@ class ConnectivityAnalysisHCP(object):
         timer2 = timer()
         print("===> finish tractography")
 
-        # compute density map
+        # compute counts map (connectivity)
         streamlines = load_tractogram(join(self.dout,"tracts.tck"), seg)
         fseeds = f"{pre}/survived_seeds.txt"
 
@@ -280,7 +280,9 @@ class ConnectivityAnalysisHCP(object):
                 print(f"{i+1:02d}/{n_target}; #streamlines = {len(stm_i)}", )
                 if len(stm_i)>0:
                     stm_i = self.resample_strms(stm_i, self.args.alg.up_factor) if self.args.alg.up_factor > 1 else stm_i
-                    dm_i,seedfrom_i = self.two_type_density_map(stm_i, seedinfo[stm_ind,:], seg)
+                    # dm_i,seedfrom_i = self.two_type_count_map(stm_i, seedinfo[stm_ind,:], seg)
+                    dm_i = self.passthrough_map(stm_i, seg)
+                    seedfrom_i = self.seedfrom_map(seedinfo[stm_ind,:], seg)
                     dm_i, seedfrom_i = dm_i.astype(np.float32),seedfrom_i.astype(np.float32)
                 else:
                     dm_i, seedfrom_i = np.zeros((seg.shape),dtype="float32"), np.zeros((seg.shape),dtype="float32")
@@ -296,8 +298,8 @@ class ConnectivityAnalysisHCP(object):
 
             timer3 = timer()
 
-            dms = np.stack(dms, axis=-1)
-            seedfroms = np.stack(seedfroms, axis=-1)
+            # dms = np.stack(dms, axis=-1)
+            # seedfroms = np.stack(seedfroms, axis=-1)
             passthros = np.stack(passthros, axis=-1)
 
             if self.args.io.save_all:
@@ -319,7 +321,32 @@ class ConnectivityAnalysisHCP(object):
         logger.info(f"compute connectivity elapse: {timer3 - timer2}")
         self.lut.to_csv(f"{self.dout}/{self.args.atlas.cparc}_lut.csv")
 
-    def two_type_density_map(self,streamlines,seedinfo,seg):
+    def passthrough_map(self, streamlines, seg):
+        affine = seg.affine
+        lin_T, offset = _mapping_to_voxel(affine)
+        counts = np.zeros(seg.shape, 'int')
+        for sl in streamlines:
+            inds = _to_voxel_coordinates(sl, lin_T, offset)
+            i, j, k = inds.T
+            # this takes advantage of the fact that numpy's += operator only
+            # acts once even if there are repeats in inds
+            counts[i, j, k] += 1
+        return counts
+
+    def seedfrom_map(self, seedinfo, seg):
+        affine = seg.affine
+        lin_T, offset = _mapping_to_voxel(affine)
+
+        seed_coord = seedinfo[:, 2:]
+        inds = _to_voxel_coordinates(seed_coord, lin_T, offset)
+        seed_from_count = np.zeros(seg.shape, 'int')
+        for coord in inds:
+            i, j, k = coord[0], coord[1], coord[2]
+            seed_from_count[i, j, k] += 1
+
+        return seed_from_count
+
+    def two_type_count_map(self,streamlines,seedinfo,seg):
         affine = seg.affine
         lin_T, offset = _mapping_to_voxel(affine)
 

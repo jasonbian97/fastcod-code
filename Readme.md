@@ -1,5 +1,8 @@
 # FastCod
 
+This repo is the official implementation of paper: [FastCod: Fast Brain Connectivity in Diffusion Imaging](https://arxiv-export3.library.cornell.edu/abs/2302.09247)
+This paper won the best student paper runner-up award in SPIE-MI 2023!
+
 FastCod can efficiently compute the diffusion-based connectivity feature between brain regions. It is a open-source tool and written in python. If you use diffusion-weighted MRI and tractography in your research or clinical practice, this tool can possibly save you lots of time!
 
 Key features:
@@ -11,14 +14,22 @@ Key features:
 - Super-resolve ability: you can get high-res connectity features even if you are dealt with low resolution dMRI (e.g., 2mm)
 - Multiple visualization tools for QA
 
-For tutorial, blogs, and more information, please visit our [project page](https://jasonbian97.github.io/fastcod/)
+[Under Construction] For tutorial, blogs, and more information, please visit our [project page](https://jasonbian97.github.io/fastcod/)
 
-# Quick Start
-1. set up IO path. There are two ways to do that:
+# How to use
+
+There are currently two modes that you can run FastCod, MODE 1 assumes you organize your data in a specific
+structure,
+and MODE 2 is more flexible but requires you to specify the input images (such as FOD, source mask, target mask,
+brain mask, etc).
+
+## MODE 1
+
+1. set up IO path. There are two options (either one is fine):
    1. modify the `config.yaml` file in the `conf` folder.
    2. assign the path in the command line. For example, see step 2.
 
-your input folder `din` should have following structure, which is similiar to Human Connectome Project dataset:
+your input folder `din` should have the following structure, which is similiar to Human Connectome Project dataset:
 ```shell
 ├── 991267
 │   ├── T1w
@@ -58,4 +69,20 @@ data/
         ├── tha_mask.nii.gz
         └── tracts.tck # tractography results
 
+```
+
+## MODE 2 [under construction]
+
+
+
+# How to cite
+If you find this is useful for your research, please cite our paper:
+
+```bibtex
+@article{bian2023fastcod,
+  title={FastCod: Fast Brain Connectivity in Diffusion Imaging},
+  author={Bian, Zhangxing and Shao, Muhan and Zhuo, Jiachen and Gullapalli, Rao P and Carass, Aaron and Prince, Jerry L},
+  journal={arXiv preprint arXiv:2302.09247},
+  year={2023}
+}
 ```
