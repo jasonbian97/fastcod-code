@@ -97,9 +97,9 @@ def prepare_cortical_label(fslant, dout, return_fpath = False, return_bimask = F
 
         target_6_mask[target_mask] = j + 1
 
-    out_name = join(dout, "target_6_mask.nii.gz")
+    out_name = join(dout, "slant6_trg_mask.nii.gz")
     nib.Nifti1Image(target_6_mask.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
-    out_name = join(dout, "cortical_bimask.nii.gz")
+    out_name = join(dout, "slant6_trg_bimask.nii.gz")
     nib.Nifti1Image((target_6_mask > 0).astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
 
     target_98_mask = np.zeros(seg_shape)
@@ -108,13 +108,13 @@ def prepare_cortical_label(fslant, dout, return_fpath = False, return_bimask = F
         target_mask = np.logical_or(target_mask, (seg_data == label))
         target_98_mask[target_mask] = i + 1
 
-    out_name = join(dout, "target_98_mask.nii.gz")
+    out_name = join(dout, "slant98_trg_mask.nii.gz")
     nib.Nifti1Image(target_98_mask.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
     # ([fcortical_bimask,ftarget_6_mask,ftarget_98_mask], [cortical_bimask,target_6_mask,target_98_mask])
     return (
-        [join(dout, "cortical_bimask.nii.gz"),
-         join(dout, "target_6_mask.nii.gz"),
-         join(dout, "target_98_mask.nii.gz")],
+        [join(dout, "slant6_trg_bimask.nii.gz"),
+         join(dout, "slant6_trg_mask.nii.gz"),
+         join(dout, "slant98_trg_mask.nii.gz")],
         [(target_6_mask > 0).astype(np.uint32),
          target_6_mask,
          target_98_mask]
@@ -133,8 +133,8 @@ def get_csf_mask(fslant, dout, return_fpath = False, return_bimask = False):
         target_mask = np.logical_or(target_mask, (seg_data == label))
         mask[target_mask] = i + 1
 
-    out_name = join(dout, "mask.nii.gz")
-    nib.Nifti1Image(mask.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
+    # out_name = join(dout, "mask.nii.gz")
+    # nib.Nifti1Image(mask.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
     out_name = join(dout, "csf_bimask.nii.gz")
     nib.Nifti1Image((mask > 0).astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
 

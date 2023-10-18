@@ -23,7 +23,7 @@ structure,
 and MODE 2 is more flexible but requires you to specify the input images (such as FOD, source mask, target mask,
 brain mask, etc).
 
-## MODE 1
+## MODE 3
 
 1. set up IO path. There are two options (either one is fine):
    1. modify the `config.yaml` file in the `conf` folder.
@@ -70,6 +70,38 @@ data/
         └── tracts.tck # tractography results
 
 ```
+
+## MODE 1
+
+Step 1 Prepare src ROI and target ROI.
+```shell
+python src/prepare_src_trg.py --seg_type slant --fseg data/mtbi_demo/slant.nii.gz --dout data/mtbi_demo/conn
+```
+Step 2 run connectivity analysis.
+```shell
+python src/run_ConnectivityAnalysis.py \
+--fdimg data/mtbi_demo/DWI_proc.nii \
+  --fbvec data/mtbi_demo/DWI_proc.bvecs \
+  --fbval data/mtbi_demo/DWI_proc.bvals \
+  --dout data/mtbi_demo/conn \
+  --fsrc_mask data/mtbi_demo/conn/tha_mask.nii.gz \
+  --ftrg_seg data/mtbi_demo/conn/slant6_trg_mask.nii.gz \
+  --fbrainmask data/mtbi_demo/robex.nii.gz
+  [options]
+```
+
+Or you have already has your FOD image, you can do
+```shell 
+python src/run_ConnectivityAnalysis.py \
+  --fFOD data/mtbi_demo/conn/wmfod.nii.gz \
+  --dout data/mtbi_demo/conn \
+  --fsrc_mask data/mtbi_demo/conn/tha_mask.nii.gz \
+  --ftrg_seg data/mtbi_demo/conn/slant6_trg_mask.nii.gz \
+  --fbrainmask data/mtbi_demo/robex.nii.gz
+  [options]
+```
+
+
 
 ## MODE 2 [under construction]
 This mode assumes you have already has your own:
