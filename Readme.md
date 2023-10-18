@@ -49,7 +49,7 @@ Note: It's okay to have extra irrelavant files here and there than specified abo
 2. run the command in the terminal:
 ```shell
 # din = data input, dout = data output, subid = subject id
-python src/ConnectivityAnalysis.py io.din=HCP/991267 io.dout=data/991267/run1 io.subid=991267
+python src/ConnectivityAnalysisHCP.py io.din=HCP/991267 io.dout=data/991267/run1 io.subid=991267
 ```
 3. check the results in the `io.dout` folder. If you run this successfully, you should be able to see following files:
 ```shell

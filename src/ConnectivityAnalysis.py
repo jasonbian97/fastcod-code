@@ -1,257 +1,242 @@
+from dipy.tracking import utils
 from dipy.io.streamline import load_tractogram, save_tractogram
 from dipy.tracking.utils import _mapping_to_voxel, _to_voxel_coordinates
+
+from nilearn.image import resample_img
+
 import nibabel as nib
 import numpy as np
 import os
 from os.path import join
-from dipy.io.image import load_nifti
-from dipy.tracking.streamline import set_number_of_points
+from dipy.core.gradients import gradient_table
+from dipy.io.gradients import read_bvals_bvecs
+from dipy.io.image import load_nifti, load_nifti_data, save_nifti
+import random
 import subprocess
+from glob import glob
+from easydict import EasyDict
 import pandas as pd
 import dti_utils as dtils
 import scipy.ndimage as ndi
+import shutil
 import warnings
-from FsLut import FsLut
-import logging
-from timeit import default_timer as timer
-import sys
-from typing import List, Tuple, Dict, Optional, Union
+from pathlib import Path
+import tempfile
+from slant_helper import prepare_cortical_label, get_tha_mask, get_csf_mask
+
+"""
+1. read and set neccessary file path
+2. group and prepare the labels (seg) for target region
+3. do tractography using mrtrix
+4. compute connectivity given the streamlines and target labels
+"""
 
 
-class ConnectivityAnalysisHCP(object):
-    """ Overview of pipeline
-    1. read and set neccessary file path
-    2. group and prepare the labels (seg) for target region
-    3. do tractography using mrtrix
-    4. compute connectivity given the streamlines and target labels
-    """
+class ConnectivityAnalysis(object):
     def __init__(self, args):
-        self.args = args
+        self.args = EasyDict(args)
 
-        self.dout = args.io.dout
-        self.dcache = join(self.dout, "cache")
-        self.din = args.io.din # the HCP subject folder
+        # Required arguments
+        self.dout = Path(self.args["output_folder"])
+        if not self.dout.exists():
+            self.dout.mkdir(parents=True, exist_ok=True)
+        self.dcache = Path(tempfile.mkdtemp(prefix=str(self.dout) + "/0"))
 
-        self.subid = os.path.basename(self.din)
+        self.fdimg = args.fdimg
+        self.fbvec = args.fbvec
+        self.fbval = args.fbval
+        self.fFOD = args.fFOD
+        self.fsrc_mask = args.fsrc_mask
+        self.fbrainmask = args.fbrainmask
 
-        self.fslut = FsLut()
-        self.lut =  None
-        self.fdimg = None
-        self.fbvec = None
-        self.fbval = None
-        self.fbrainmask = None
-        self.fseg = None
+        # optional
+        self.fslant = args.fslant
+        self.ftrg_seg = args.ftrg_seg
+        self.tr_select = self.args.tr_select
+        self.wm_mask = ""
+        self.bvec_flip = args.bvec_flip
+        self.down_res = args.down_res
+        self.tr_alg = args.tr_alg
+        self.tr_dilate_src = args.tr_dilate_src
+        self.tr_dilate_trg = args.tr_dilate_trg
+        self.tr_bbox = args.tr_bbox
+        self.tr_bbox_margin = args.tr_bbox_margin
 
-        self.setup_folder()
 
-    def setup_folder(self):
-        if not os.path.exists(self.dout):
-            os.makedirs(self.dout)
-            os.makedirs(self.dcache)
+        # check input arguments
+        if (self.ftrg_seg is None) and (self.fslant is None):
+            raise ValueError("Either fslant or ftrg_seg should be provided")
 
-    def set_paths_HCP(self):
-        print(self.subid)
-        self.fdimg = join(self.din,"T1w/Diffusion/data.nii.gz")
-        self.fbvec = join(self.din,"T1w/Diffusion/bvecs")
-        self.fbval = join(self.din, "T1w/Diffusion/bvals")
-        self.fbrainmask = join(self.din, "T1w/brainmask_fs.nii.gz")
 
-        # The aparc+aseg.mgz uses the Desikan-Killiany atlas. To see the Destrieux atlas, you would load fsaverage/mri/aparc.a2009s+aseg.mgz
-        if self.args.atlas.cparc == "Desikan":
-            self.fseg = join(self.din, "T1w/aparc+aseg.nii.gz")
-        elif self.args.atlas.cparc == "Destrieux":
-            self.fseg = join(self.din, "T1w/aparc.a2009s+aseg.nii.gz")
-        else:
-            raise ValueError(f"Can't find {self.args.atlas.cparc} ")
 
-        # For HCP dataset, here's no need to flip the sign of bvec. However, for other dataset, it's might be necessary.
+    def set_paths_mmti(self):
+
+        self.wm_mask = f"/iacl/pg22/muhan/MTBI_project/data/mmti/alldata_withslant/{self.subid}/{self.subid}_01_MPRAGE_T1w_norm_slant_filledwm_mask.nii.gz"
+
+        # special operation
+        bvecs = np.loadtxt(self.fbvec)
+        # bvecs[0, :] *= -1  # flip x
+        bvecs[1, :] *= -1  # flip y
+        np.savetxt(f"{self.dout}/flippedy.bvecs", bvecs, fmt="%.6f")
+        self.fbvec = f"{self.dout}/flippedy.bvecs"
 
         print(f"using {self.fdimg}")
         print(f"using {self.fbvec}")
         print(f"using {self.fbval}")
 
 
-    def prepare_cortical_label(self, return_fpath = False, return_bimask = False):
-        seg_data, _, seg = load_nifti(self.fseg, return_img=True)
-        seg_shape = seg.shape
 
-        # TODO: left or right should be shown differently in csv file. Now it is not.
-        if self.args.atlas.cparc == "Desikan":
-            if self.args.alg.sep_lr:
-                target_labels = [1000 + i for i in range(1,36)] + [2000 + i for i in range(1,36)]
-                self.lut = self.fslut.lut.loc[(self.fslut.lut.No>=1000) & ((self.fslut.lut.No<=1035))] # note that include 1000 which has label as "unknown"
-                self.lut.append(self.fslut.lut.loc[(self.fslut.lut.No>=2001) & ((self.fslut.lut.No<=2035))])
-                self.lut["Ind"] = list(range(71))
-            else:
-                target_labels = [[1000 + i, 2000+i] for i in range(1, 36)]
-                self.lut = self.fslut.lut.loc[(self.fslut.lut.No >= 1000) & ((self.fslut.lut.No <= 1035))]
-                self.lut["Ind"] = list(range(35+1))
+    def set_paths_mtbi(self):
+        print(self.subid)
+        self.fdimg = glob(f"/iacl/pg22/zhangxing/AllDatasets/mtbi/{self.subid}/ConnectivityAnalysis/*_DWI_DrBUDDY_acqres.nii.gz")[0]
+        if not os.path.exists(self.fdimg):
+            self.fdimg = glob(join(self.din,"01","proc","*_01_tortoise","*_01_DWI_AP_proc_DRBUDDI_proc", "*_01_DWI_AP_proc_DRBUDDI_up_final.nii"))[0]
+        self.fbvec = glob(join(self.din,"01","proc","*_01_tortoise","*_01_DWI_AP_proc_DRBUDDI_proc", "*_01_DWI_AP_proc_DRBUDDI_up_final.bvecs"))[0]
+        self.fbval = glob(join(self.din,"01","proc","*_01_tortoise","*_01_DWI_AP_proc_DRBUDDI_proc", "*_01_DWI_AP_proc_DRBUDDI_up_final.bvals"))[0]
+        self.fseg = glob(join(self.din,"01","proc", "*_01_MPRAGEPre_norm_slant_macruise.nii.gz"))[0]
+        self.fbrainmask = glob(join(self.din,"01","proc", "*_01_MPRAGEPre_norm_robex.nii.gz"))[0]
 
-        elif self.args.atlas.cparc == "Destrieux":
-            if self.args.alg.sep_lr:
-                target_labels = [11100 + i for i in range(1,76)] + [12100 + i for i in range(1,76)]
-                self.lut = self.fslut.lut.loc[(self.fslut.lut.No >= 11100) & ((self.fslut.lut.No <= 11175))]
-                self.lut.append(self.fslut.lut.loc[(self.fslut.lut.No >= 12100) & ((self.fslut.lut.No <= 12175))])
-                self.lut["Ind"] = list(range(75*2+1))
-            else:
-                target_labels = [[11100 + i, 12100 + i] for i in range(1, 76)]
-                self.lut = self.fslut.lut.loc[(self.fslut.lut.No >= 11100) & ((self.fslut.lut.No <= 11175))]
-                self.lut["Ind"] = list(range(75+1))
-        else:
-            raise ValueError(f"Can't find {self.args.atlas.cparc} ")
+        # special paths
+        self.wm_mask = glob(join(self.din,"01","proc", "**_01_MPRAGEPre_norm_slant_filledwm_mask.nii.gz"))[0]
 
-        n_target = len(target_labels)
-        print("number of targeted regions: ", n_target)
+        # special operation
+        bvecs = np.loadtxt(self.fbvec)
+        bvecs[0, :] *= -1 # flip x
+        bvecs[1, :] *= -1 # flip y
+        np.savetxt(f"{self.dout}/flippedxy.bvecs", bvecs, fmt="%.6f")
+        self.fbvec = f"{self.dout}/flippedxy.bvecs"
 
-        # Create set of target masks
-        target_mask = np.zeros(seg_shape)
-        for j in range(n_target):
-            j_mask = np.zeros(seg_shape)
-            if isinstance(target_labels[j], list):
-                for label in target_labels[j]:
-                    j_mask = np.logical_or(j_mask, (seg_data == label))
-            else:
-                j_mask = np.logical_or(j_mask, (seg_data == target_labels[j]))
+    def set_paths_demo(self):
 
-            target_mask[j_mask] = j + 1
+        self.fbval = "/mnt/ssd2/Projects/DTI/MTBI_subset/MRCON2002/DWI_tortoise/MRCON2002_01_DWI_AP_proc_DRBUDDI_up_final.bvals"
+        self.fbvec = "/mnt/ssd2/Projects/DTI/MTBI_subset/MRCON2002/DWI_tortoise/MRCON2002_01_DWI_AP_proc_DRBUDDI_up_final_flipped.bvecs"
+        # self.fdimg = "/mnt/ssd2/Projects/DTI/MTBI_subset/MRCON2002/DWI_tortoise/MRCON2002_01_DWI_AP_proc_DRBUDDI_up_final.nii.gz"
+        self.fdimg = "/mnt/ssd2/Projects/DTI/MTBI_subset/MRCON2002/DWI_tortoise/lowres_tortoise_MNI.nii.gz"
+        self.fbrainmask = "/mnt/ssd2/Projects/DTI/MTBI_subset/MRCON2002/MRCON2002_01_MPRAGEPre_norm_robex.nii.gz"
+        self.fseg = "/mnt/ssd2/Projects/DTI/MTBI_subset/MRCON2002/MRCON2002_01_MPRAGEPre_norm_slant.nii.gz"
+        self.wm_mask = "/mnt/ssd2/Projects/DTI/MTBI_subset/MRCON2002/MRCON2002_01_MPRAGEPre_norm_slant_filledwm_mask.nii.gz"
 
-        out_name = join(self.dout, f"{self.args.atlas.cparc}_target_parc.nii.gz")
-        nib.Nifti1Image(target_mask.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
-        out_name = join(self.dout, "cortical_bimask.nii.gz")
-        nib.Nifti1Image((target_mask > 0).astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
 
-        return (
-            [join(self.dout, "cortical_bimask.nii.gz"),
-             join(self.dout, "target_mask.nii.gz")],
-            [(target_mask > 0).astype(np.uint32),
-             target_mask],
-            n_target
-        )
 
-    def get_tha_mask(self, return_fpath = False, return_bimask = False):
-        seg_data, _, seg = load_nifti(self.fseg, return_img=True)
-        mask = 1 * (seg_data == 10) + 2 * (seg_data == 49)
-        out_name = join(self.dout, "tha_mask.nii.gz")
-        nib.Nifti1Image(mask.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
-        out_name = join(self.dout, "tha_bimask.nii.gz")
-        nib.Nifti1Image((mask > 0).astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
 
-        if return_fpath:
-            if return_bimask:
-                return join(self.dout, "tha_bimask.nii.gz")
-            else:
-                return join(self.dout, "tha_mask.nii.gz")
-        else:
-            if return_bimask:
-                return (mask > 0).astype(np.uint32)
-            else:
-                return mask
 
-    def dilate_mask(self, fmask, n_dilate):
-        outfile = fmask.split(".")[0] + f"_dilate{n_dilate}.nii.gz"
-        subprocess.run(
-            f"maskfilter -npass {n_dilate} {fmask} dilate {outfile} -force".split())
-        return outfile
+    def dilate_tha_mask(self, iter = 1):
+        in_name = join(self.dout, "tha_bimask.nii.gz")
+        seg_data, _, seg = load_nifti(in_name, return_img=True)
+        dilated_data = ndi.binary_dilation(seg_data, iterations = iter)
+        out_name = join(self.dout, "tha_bimask_dilated.nii.gz")
+        nib.Nifti1Image(dilated_data.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
+        return dilated_data, out_name
 
-    def resample(self, fimg, suffix="default", res=None, tempimg=None, interp="linear"):
-        """use mrgrid to perform resampling. During downsampling, mrgrid will handle aliasing problem"""
-        if res and tempimg is None:
-            outfile = fimg.split(".")[0] + f"{suffix}.nii.gz"
-            subprocess.run(
-                f"mrgrid {fimg} regrid -voxel {res} -interp {interp} {outfile} -force".split())
-        else:
-            outfile = fimg.split(".")[0] + f"{suffix}.nii.gz"
-            subprocess.run(
-                f"mrgrid {fimg} regrid -template {tempimg} -interp {interp} {outfile} -force".split())
+    def dilate_target_mask(self,iter=1):
+        in_name = join(self.dout, "cortical_bimask.nii.gz")
+        seg_data, _, seg = load_nifti(in_name, return_img=True)
+        dilated_data = ndi.binary_dilation(seg_data, iterations=iter)
+        out_name = join(self.dout, "cortical_bimask_dilated.nii.gz")
+        nib.Nifti1Image(dilated_data.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
+        return dilated_data, out_name
 
-        return outfile
+    def bbox_tha_mask(self, margin = 64):
+        in_name = join(self.dout, "tha_bimask.nii.gz")
+        seg_data, _, seg = load_nifti(in_name, return_img=True)
+        dilated_data = np.zeros_like(seg_data)
+        c = np.array([120, 147, 107])
+        x0, y0, z0 = c - margin
+        x1, y1, z1 = c + margin
 
-    def parc_from_stack_of_maps(self, dms, template, tha_mask, kw = "keyword"):
-        ind2label = {row["Ind"]: row["No"] for _, row in self.lut.iterrows()}
-        dms = np.concatenate([np.zeros(template.shape)[..., np.newaxis], dms], axis=-1)
-        parc = np.argmax(dms, axis=-1)
-        parc[tha_mask == 0] = 0
-        fsparc = np.vectorize(ind2label.get)(parc)  # map value through ind2label
-        rgbimg = self.fslut.parc2rbg_3d(fsparc)
-        
-        affine = template.affine
-        header = template.header
-        cparc = self.args.atlas.cparc
-        out_name = join(self.dout, f"{cparc}_{kw}_parc.nii.gz")
-        nib.Nifti1Image(parc.astype(np.uint32), affine, header).to_filename(out_name)
-        out_name = join(self.dout, f"{cparc}_{kw}_fsparc.nii.gz")
-        nib.Nifti1Image(fsparc.astype(np.uint32), affine, header).to_filename(out_name)
-        out_name = join(self.dout, f"{cparc}_{kw}_fsparc_rgb.nii.gz")
-        nib.Nifti1Image(rgbimg.astype(np.uint32), affine, header).to_filename(out_name)
-
-    def resample_strms(self, strms, factor):
-        up_strms = []
-        for strm in strms:
-            N = strm.shape[0]
-            up_strm = set_number_of_points(strm, int(N*factor))
-            up_strms.append(up_strm)
-        return up_strms
+        dilated_data[x0:x1,y0:y1,z0:z1] = 1
+        out_name = join(self.dout, f"tha_bimask_bbox_{margin}.nii.gz")
+        nib.Nifti1Image(dilated_data.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
+        return dilated_data, out_name
 
     def run(self):
         """ when everything is prepared, then run!
         """
-        logger = logging.getLogger('root')
-        # check output dir and see if it's already exist
-        if os.path.exists(f"{self.dout}/tracks.tck"):
-            warnings.warn("The output dir contains the output file, skip re-run this case.")
-            return
 
-        self.set_paths_HCP()
         data, _, dmri = load_nifti(self.fdimg, return_img=True)
+        labels, _, seg = load_nifti(self.fseg, return_img=True)
+        src_mask, _, src = load_nifti(self.fsrc_mask, return_img=True)
+        trg_seg, _, trg = load_nifti(self.ftrg_seg, return_img=True)
 
-        # keep resolution of dMRI and resample brain_mask and seg to match it.
-        res, sr = self.args.alg.res, self.args.alg.sr
-        # dif_res = dmri.header.get_zooms()[:3] # get diffusion voxel spacing
-        # dif_res_str = f"{dif_res[0]},{dif_res[1]},{dif_res[2]}"
-        # self.fdimg, dmri = self.resample(dmri, f"data_res{res}.nii.gz", interp = 'linear') # update reference
-        self.fbrainmask = self.resample(self.fbrainmask, suffix="_regrid", tempimg=self.fdimg , interp = 'nearest')
-        if sr:
-            self.fseg = self.resample(self.fseg, suffix = f"_{sr}", res = sr, interp='nearest')
-        else: # downsampling the seg, so that the parcellation map will be the same res as drmi
-            self.fseg = self.resample(self.fseg, suffix = f"_regrid", tempimg=self.fdimg, interp = 'nearest')
-        labels, _, seg = load_nifti(self.fseg, return_img=True) # update
+        bvals, bvecs = read_bvals_bvecs(self.fbval, self.fbvec)
+        gtab = gradient_table(bvals, bvecs)
 
-        timer1 = timer()
-        # get thalamus mask from seg
-        ftha_mask = self.get_tha_mask(return_fpath=True, return_bimask=True)
-        if self.args.alg.dilate_roi>0:
-            ftha_mask = self.dilate_mask(ftha_mask, n_dilate = self.args.alg.dilate_roi)
-        tha_mask, _ = load_nifti(ftha_mask)
+        # if self.fslant is not None:
+        #     # ftha_mask, _, tha_mask, _ = get_tha_mask(self.fslant, self.dcache)
+        #     fcsf_mask = get_csf_mask(self.fslant, self.dcache, return_fpath=True, return_bimask=True)
+        #     ([fcortical_bimask,ftarget_6_mask,ftarget_98_mask], [cortical_bimask,target_6_mask,target_98_mask])\
+        #         = prepare_cortical_label(self.fslant, self.dcache)
+        #     print(f"Number of src voxels: {src_mask.flatten().sum()}")
 
-        print(f"Number of thalamic voxels: {np.sum(tha_mask.flatten())}")
-        logger.info(f"Number of thalamic voxels: {np.sum(tha_mask.flatten())}")
+        # downsample dMRI to accelerate process
+        if self.down_res:
+            print("===> downsampling resolution of dMR and brain_mask to (2,2,2)...")
+            target_affine = float(self.down_res) * np.eye(3) * np.sign(np.diag(dmri.affine[:3,:3]))
+            dmri = resample_img(dmri, target_affine=target_affine, interpolation='linear')
+            self.fdimg = f"{self.dout}/dwi_down_res_{self.down_res}.nii.gz"
+            nib.save(dmri, self.fdimg)
 
-        # get cortical mask from seg
-        ([fcortical_bimask, ftarget_parc], [cortical_bimask, target_parc], n_target) \
-            = self.prepare_cortical_label()
+        # downsample the brainmask to match the resolution of dMRI
+        _, _, brain_mask = load_nifti(self.fbrainmask, return_img=True)
+        brain_mask_lowres = resample_img(brain_mask, target_affine = dmri.affine, target_shape=dmri.shape[:3],interpolation='nearest')
+        nib.save(brain_mask_lowres,f"{self.dout}/brain_mask_lowres.nii.gz")
+        nib.save(brain_mask, f"{self.dout}/brain_mask.nii.gz")
 
-        # run mrtrix3 tractography
-        print("===> running tractography...")
+        # run mrtrix FOD
+        print("===> running FOD...")
         pre = self.dcache
-        subprocess.run(f"mrconvert {self.fdimg} -fslgrad {self.fbvec} {self.fbval} {pre}/dwi_corrected.mif -force".split())
-
-        if not os.path.exists(f"{pre}/wmfod.mif"):
-            subprocess.run(f"dwi2response dhollander {pre}/dwi_corrected.mif {pre}/wm.txt {pre}/gm.txt {pre}/csf.txt -force".split())
-            subprocess.run(f"dwi2fod msmt_csd {pre}/dwi_corrected.mif -mask {self.fbrainmask} \
-                            {pre}/wm.txt {pre}/wmfod.mif {pre}/gm.txt {pre}/gmfod.mif {pre}/csf.txt {pre}/csffod.mif -force".split())
+        subprocess.run(f"mrconvert {self.fdimg} -fslgrad {self.fbvec} {self.fbval} {pre}/dwi.mif".split())
+        subprocess.run(f"dwi2response dhollander {pre}/dwi.mif {pre}/wm.txt {pre}/gm.txt {pre}/csf.txt", shell=True)
+        subprocess.run(f"dwi2fod msmt_csd {pre}/dwi.mif -mask {self.dout}/brain_mask_lowres.nii.gz \
+                        {pre}/wm.txt {pre}/wmfod.mif {pre}/gm.txt {pre}/gmfod.mif {pre}/csf.txt {pre}/csffod.mif", shell=True)
         fwmfod = f"{pre}/wmfod.mif"
 
-        finput = fwmfod
-        excludes = ""
-        subprocess.run(f"tckgen -select {self.args.alg.tr.select} -algorithm iFOD2 -seed_image {ftha_mask} \
-                    -angle 22.5 -maxlen 250 -minlen 10 -include {ftha_mask} -include {fcortical_bimask} \
-                    {excludes} -mask {self.fbrainmask} {finput} \
-                    -output_seeds {pre}/survived_seeds.txt {self.dout}/tracts.tck -force".split())
+        fseed_mask = self.fsrc_mask
 
-        timer2 = timer()
+        if self.tr_alg in ["iFOD2","iFOD1","SD_STREAM"]: # input is FOD
+            finput = fwmfod
+        elif self.tr_alg in ["Tensor_Prob","Tensor_Det"]: # input is dwi
+            finput = f"{pre}/dwi_corrected.mif"
+        else:
+            raise ValueError(f"{self.tr_alg} alg is not found!")
+
+        if self.tr_dilate_src>0: # seed in dilated src region and not exclude surrounding streamlines
+            tha_mask_dilated, ftha_mask_dilated = self.dilate_tha_mask(iter=self.tr_dilate_src)
+            fseed_mask = ftha_mask_dilated
+            ftha_mask = ftha_mask_dilated
+            tha_mask = tha_mask_dilated
+
+        if self.tr_bbox:
+            tha_mask_dilated, ftha_mask_dilated = self.bbox_tha_mask(margin = self.tr_bbox_margin)
+            fseed_mask = ftha_mask_dilated
+            ftha_mask = ftha_mask_dilated
+            tha_mask = tha_mask_dilated
+
+        # if self.args.tr_excsf:
+        #     excludes = f"-exclude {fcsf_mask}"
+        # else:
+        #     excludes = ""
+        excludes = ""
+
+        if self.tr_dilate_trg>0:
+            cortical_bimask, fcortical_bimask = self.dilate_target_mask(iter=self.tr_dilate_trg)
+
+        subprocess.run(f"tckgen -select {self.tr_select} -algorithm {self.tr_alg} -seed_image {fseed_mask} \
+                        -angle 22.5 -maxlen 250 -minlen 10 -include {fsrc_bimask} -include {ftrg_bimask} \
+                        {excludes} -mask {self.fbrainmask} {finput} \
+                        -output_seeds {pre}/survived_seeds.txt {self.dout}/tracts.tck".split())
+
+        if fseed_mask == self.wm_mask:
+            subprocess.run(f"tckedit {self.dout}/tracts.tck {self.dout}/tracts_filt_tha.tck -include {ftha_mask}".split())
+
         print("===> finish tractography")
 
-        # compute counts map (connectivity)
+
+        # compute density map
+        # if self.args["debug"]:
+        #     streamlines = load_tractogram("/mnt/ssd2/Projects/DTI/Connectivity_DIPY/demo/ConnectivityAnalysis_971120/tracks_100k.tck",seg)
+        #     fseeds = "/mnt/ssd2/Projects/DTI/Connectivity_DIPY/demo/ConnectivityAnalysis/cache_971120/survived_seeds.txt"
+        # else:
         streamlines = load_tractogram(join(self.dout,"tracts.tck"), seg)
         fseeds = f"{pre}/survived_seeds.txt"
 
@@ -261,15 +246,16 @@ class ConnectivityAnalysisHCP(object):
         seedinfo = seedinfo.iloc[:, :5]
         seedinfo = seedinfo.to_numpy()
 
-        for target_name, target_mask in zip([self.args.atlas.cparc,],[target_parc, ]):
+        for target_name, target_mask in zip(["target_6", "target_98"],[target_6_mask, target_98_mask]):
+            num_classes = len(np.unique(target_mask)) - 1
             dms = []
             seedfroms = []
             passthros = []
             print(f"Using {target_name} to count fibers...")
-            for i in range(n_target):
+            for i in range(num_classes):
                 cortical_mask_i = target_mask == (i + 1)
-                if self.args.alg.dilate_trg > 0:
-                    cortical_mask_i = ndi.binary_dilation(cortical_mask_i, iterations = self.args.alg.dilate_trg)
+                if self.args.tr_dilate_targetmask>0:
+                    cortical_mask_i = ndi.binary_dilation(cortical_mask_i, iterations = self.args.tr_dilate_targetmask)
                 # stm_ind, stm_i = dtils.target(streamlines, seg.affine, cortical_mask_i)
                 r = dtils.target(streamlines, seg.affine, cortical_mask_i)
                 r = list(r)
@@ -277,17 +263,14 @@ class ConnectivityAnalysisHCP(object):
                 stm_ind = np.array(stm_ind)
                 stm_i = [rr[1] for rr in r]
 
-                print(f"{i+1:02d}/{n_target}; #streamlines = {len(stm_i)}", )
+                print(f"{i:02d}/{num_classes}; #streamlines = {len(stm_i)}", )
                 if len(stm_i)>0:
-                    stm_i = self.resample_strms(stm_i, self.args.alg.up_factor) if self.args.alg.up_factor > 1 else stm_i
-                    # dm_i,seedfrom_i = self.two_type_count_map(stm_i, seedinfo[stm_ind,:], seg)
-                    dm_i = self.passthrough_map(stm_i, seg)
-                    seedfrom_i = self.seedfrom_map(seedinfo[stm_ind,:], seg)
+                    dm_i,seedfrom_i = self.two_type_density_map(stm_i, seedinfo[stm_ind,:], seg)
                     dm_i, seedfrom_i = dm_i.astype(np.float32),seedfrom_i.astype(np.float32)
                 else:
                     dm_i, seedfrom_i = np.zeros((seg.shape),dtype="float32"), np.zeros((seg.shape),dtype="float32")
 
-                if self.args.alg.conn_normalize:
+                if self.args.con_normalize:
                     area = np.sum(cortical_mask_i.flatten())/1000.
                     dm_i /= area
                     seedfrom_i /= area
@@ -296,57 +279,39 @@ class ConnectivityAnalysisHCP(object):
                 seedfroms.append(seedfrom_i)
                 passthros.append(dm_i-seedfrom_i)
 
-            timer3 = timer()
-
-            # dms = np.stack(dms, axis=-1)
-            # seedfroms = np.stack(seedfroms, axis=-1)
+            dms = np.stack(dms, axis=-1)
+            seedfroms = np.stack(seedfroms, axis=-1)
             passthros = np.stack(passthros, axis=-1)
 
-            if self.args.io.save_all:
+            if self.args.save_all:
                 print("writing to ", self.dout)
-                # out_name = join(self.dout, f"{target_name}_denmap.nii.gz")
-                # nib.Nifti1Image(dms.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
-                # out_name = join(self.dout, f"{target_name}_seedfrommap.nii.gz")
-                # nib.Nifti1Image(seedfroms.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
+                out_name = join(self.dout, f"{target_name}_denmap.nii.gz")
+                nib.Nifti1Image(dms.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
+                out_name = join(self.dout, f"{target_name}_seedfrommap.nii.gz")
+                nib.Nifti1Image(seedfroms.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
                 out_name = join(self.dout, f"{target_name}_passthromap.nii.gz")
                 nib.Nifti1Image(passthros.astype(np.float32), seg.affine, seg.header).to_filename(out_name)
 
-            # self.parc_from_stack_of_maps(dms, template=seg, tha_mask=tha_mask, kw="denmap")
-            # self.parc_from_stack_of_maps(seedfroms, template=seg, tha_mask=tha_mask, kw="seedfrommap")
-            self.parc_from_stack_of_maps(passthros, template=seg, tha_mask=tha_mask, kw="passthromap")
+            # label 0 is bg, label 1 is the voxel that has zero count, starting from label2 are connectivity info.
+            a = np.concatenate([np.zeros(seg.shape)[...,np.newaxis],dms],axis=-1)
+            parc = np.argmax(a, axis=-1) + 1
+            parc[tha_mask == 0] = 0
+            out_name = join(self.dout, f"{target_name}_denmap_parc.nii.gz")
+            nib.Nifti1Image(parc.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
 
-        timer3 = timer()
-        logger.info(f"total running elapse: {timer3-timer1}")
-        logger.info(f"tractography elapse: {timer2 - timer1}")
-        logger.info(f"compute connectivity elapse: {timer3 - timer2}")
-        self.lut.to_csv(f"{self.dout}/{self.args.atlas.cparc}_lut.csv")
+            a = np.concatenate([np.zeros(seg.shape)[..., np.newaxis], seedfroms], axis=-1)
+            parc = np.argmax(a, axis=-1) + 1
+            parc[tha_mask == 0] = 0
+            out_name = join(self.dout, f"{target_name}_seedfrommap_parc.nii.gz")
+            nib.Nifti1Image(parc.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
 
-    def passthrough_map(self, streamlines, seg):
-        affine = seg.affine
-        lin_T, offset = _mapping_to_voxel(affine)
-        counts = np.zeros(seg.shape, 'int')
-        for sl in streamlines:
-            inds = _to_voxel_coordinates(sl, lin_T, offset)
-            i, j, k = inds.T
-            # this takes advantage of the fact that numpy's += operator only
-            # acts once even if there are repeats in inds
-            counts[i, j, k] += 1
-        return counts
+            a = np.concatenate([np.zeros(seg.shape)[..., np.newaxis], passthros], axis=-1)
+            parc = np.argmax(a, axis=-1) + 1
+            parc[tha_mask == 0] = 0
+            out_name = join(self.dout, f"{target_name}_passthromap_parc.nii.gz")
+            nib.Nifti1Image(parc.astype(np.uint32), seg.affine, seg.header).to_filename(out_name)
 
-    def seedfrom_map(self, seedinfo, seg):
-        affine = seg.affine
-        lin_T, offset = _mapping_to_voxel(affine)
-
-        seed_coord = seedinfo[:, 2:]
-        inds = _to_voxel_coordinates(seed_coord, lin_T, offset)
-        seed_from_count = np.zeros(seg.shape, 'int')
-        for coord in inds:
-            i, j, k = coord[0], coord[1], coord[2]
-            seed_from_count[i, j, k] += 1
-
-        return seed_from_count
-
-    def two_type_count_map(self,streamlines,seedinfo,seg):
+    def two_type_density_map(self,streamlines,seedinfo,seg):
         affine = seg.affine
         lin_T, offset = _mapping_to_voxel(affine)
 
@@ -368,28 +333,16 @@ class ConnectivityAnalysisHCP(object):
 
         return counts, seed_from_count
 
-import hydra
-from omegaconf import DictConfig, OmegaConf
-
-@hydra.main(version_base="1.2", config_path="../conf", config_name="config")
-def main(cfg : DictConfig) -> None:
-    print(OmegaConf.to_yaml(cfg))
-    ca = ConnectivityAnalysisHCP(cfg)
-
-    # set up logging
-    file_handler = logging.FileHandler(filename=f'{ca.dout}/debug.log')
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    formatter = logging.Formatter(fmt='[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    stdout_handler.setFormatter(formatter)
-    logger = logging.getLogger('root')
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(file_handler)
-    logger.addHandler(stdout_handler)
-
-    ca.run()
-
-"""python src/ConnectivityAnalysis.py io.din=/mnt/ssd2/AllDatasets/HCP102/991267 io.dout=data/results/991267/run1 io.subid=99126"""
 if __name__ == "__main__":
-    main()
+    args = {}
+    args["input_folder"] = ""
+    args["dataset"] = "demo"
+    args["output_folder"] = "/mnt/ssd2/Projects/ThaParc/Unsupervised/demo"
+    args["tr_select"] = 10000
+    args["tr_seedtha"] = True
+    args["con_normalize"] = False
+    args["debug"] = False
+
+    ca = ConnectivityAnalysis(args)
+    ca.run()
 
