@@ -100,9 +100,9 @@ class ConnectivityAnalysis(object):
             fbvec = self.fbvec
             fbval = self.fbval
             if self.bvec_flip:
-                print("===> flipping bvec...")
-                self.flip_bvec(self.fbvec, self.bvec_flip, f"{self.dcache}/bvecs_flipped.bvec")
+                print(f"===> flipping bvec in {self.bvec_flip} direction")
                 fbvec = f"{self.dcache}/bvecs_flipped_{self.bvec_flip}.bvec"
+                self.flip_bvec(self.fbvec, self.bvec_flip, fbvec)
 
             # downsample dMRI to accelerate process
             if self.down_res:
