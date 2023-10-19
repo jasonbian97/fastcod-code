@@ -113,14 +113,16 @@ class ConnectivityAnalysis(object):
                 nib.save(dmri, fdimg)
 
             # run mrtrix FOD
+            # note that "cwd = pre" is kinda key here because mrtirx by default will write temporary file in __file__
+            # directory which is not permitted in singularity container, so we need to change the working directory.
             print("===> running FOD...")
-            subprocess.run(f"mrconvert {fdimg} -fslgrad {fbvec} {fbval} {pre}/dwi.mif".split())
+            subprocess.run(f"mrconvert {fdimg} -fslgrad {fbvec} {fbval} {pre}/dwi.mif", shell=True, cwd = pre)
             subprocess.run(f"dwi2response dhollander {pre}/dwi.mif {pre}/wm.txt {pre}/gm.txt {pre}/csf.txt",
-                           shell=True)
+                           shell=True, cwd = pre)
             subprocess.run(f"dwi2fod msmt_csd {pre}/dwi.mif -mask {self.dout}/brain_mask_lowres.nii.gz \
                                 {pre}/wm.txt {pre}/wmfod.mif {pre}/gm.txt {pre}/gmfod.mif {pre}/csf.txt {pre}/csffod.mif",
-                           shell=True)
-            subprocess.run(f"mrconvert {pre}/wmfod.mif {self.dout}/wmfod.nii.gz -force", shell=True)
+                           shell=True, cwd = pre)
+            subprocess.run(f"mrconvert {pre}/wmfod.mif {self.dout}/wmfod.nii.gz -force", shell=True, cwd = pre)
 
             fFOD = f"{self.dout}/wmfod.nii.gz"
 
@@ -183,8 +185,8 @@ class ConnectivityAnalysis(object):
         subprocess.run(f"tckgen -select {self.tr_select} -algorithm {self.tr_alg} -seed_image {fseed_mask} \
                         -angle 22.5 -maxlen 250 -minlen 10 -include {fsrc_bimask} -include {ftrg_bimask} \
                         {excludes} -mask {self.fbrainmask} {finput} \
-                        -output_seeds {pre}/survived_seeds.txt {pre}/tracts.tck", shell=True)
-        subprocess.run(f"mv {pre}/tracts.tck {self.dout}/tracts.tck", shell=True)
+                        -output_seeds {pre}/survived_seeds.txt {pre}/tracts.tck", shell=True, cwd = pre)
+        subprocess.run(f"mv {pre}/tracts.tck {self.dout}/tracts.tck", shell=True, cwd=pre)
         # Note that seed image and the -include image can be different due to dilation option.
 
         # if fseed_mask == self.wm_mask:

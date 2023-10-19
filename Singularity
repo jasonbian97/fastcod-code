@@ -38,18 +38,19 @@ From: ubuntu:18.04
     chmod 755 /CODE
     
     # Install source code
-    # cd /
-    # apt-get -y install wget git gcc libpq-dev python-dev python-pip python3 python3.8 python3.8-venv python3.8-dev python3-dev python3-pip python3-venv python3-wheel libpng-dev libfreetype6-dev libblas3 liblapack3 libblas-dev liblapack-dev pkg-config
-    # cd /INSTALLERS
-    # git clone https://github.com/jasonbian97/fastcod-code.git
-    # cd fastcod-code
-    # mv src/* /CODE
-    # cd /CODE
-    # python3.8 -m venv fastcod_env
-    # source fastcod_env/bin/activate
-    # pip3 install wheel
-    # pip install -r /INSTALLERS/fastcod-code/pip_install_env.txt
-    # deactivate
+    cd /
+    apt-get -y install wget git gcc libpq-dev python-dev python-pip python3 python3.8 python3.8-venv python3.8-dev python3-dev python3-pip python3-venv python3-wheel libpng-dev libfreetype6-dev libblas3 liblapack3 libblas-dev liblapack-dev pkg-config
+    cd /INSTALLERS
+    git clone https://github.com/jasonbian97/fastcod-code.git
+    cd fastcod-code
+    mv src /CODE
+    cd /CODE
+    python3.8 -m venv fastcod_env
+    source fastcod_env/bin/activate
+    pip install --upgrade pip
+    pip3 install wheel
+    pip install -r /INSTALLERS/fastcod-code/pip_install_env.txt
+    deactivate
 
     cd /
 
@@ -65,6 +66,7 @@ From: ubuntu:18.04
 #!/bin/bash
 
     source /CODE/fastcod_env/bin/activate
-    python /CODE/run_ConnectivityAnalysis.py "$@"
+    cd /CODE/src
+    python "$@"
 
-    # "$@" passes any additional arguments provided to the container to the run_dtiQA.sh script.
+    # "$@" passes any additional arguments provided to the container to the script.
