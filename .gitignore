@@ -3,3 +3,4 @@ outputs
 *.pyc
 *.simg
 *sandbox
+*.sif
