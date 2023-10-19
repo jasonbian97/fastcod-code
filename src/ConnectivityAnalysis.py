@@ -290,16 +290,3 @@ class ConnectivityAnalysis(object):
 
         return counts, seed_from_count
 
-
-if __name__ == "__main__":
-    args = {}
-    args["input_folder"] = ""
-    args["dataset"] = "demo"
-    args["output_folder"] = "/mnt/ssd2/Projects/ThaParc/Unsupervised/demo"
-    args["tr_select"] = 10000
-    args["tr_seedtha"] = True
-    args["con_normalize"] = False
-    args["debug"] = False
-
-    ca = ConnectivityAnalysis(args)
-    ca.run()

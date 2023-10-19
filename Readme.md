@@ -33,7 +33,6 @@ singularity run -e -B /mnt fastcod.sif prepare_src_trg.py --help
 
 # run MODE 1
 singularity run -e -B /mnt fastcod.sif prepare_src_trg.py --seg_type slant --fseg path/to/slant.nii.gz --dout path/to/output/folder
-#singularity run -e -B /mnt fastcod.sif prepare_src_trg.py --seg_type slant --fseg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/slant.nii.gz --dout /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2
 
 singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
   --fdimg path/to/DWI_proc.nii \
@@ -43,15 +42,6 @@ singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
   --fsrc_mask path/to/src_mask.nii.gz \
   --ftrg_seg path/to/trg_seg.nii.gz \
   --fbrainmask path/to/brainmask.nii.gz
-  
-singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
-  --fdimg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/DWI_proc.nii \
-  --fbvec /mnt/ssd3/Projects/fastcod/data/mtbi_demo/DWI_proc.bvecs \
-  --fbval /mnt/ssd3/Projects/fastcod/data/mtbi_demo/DWI_proc.bvals \
-  --dout /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn4 \
-  --fsrc_mask /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2/tha_mask.nii.gz \
-  --ftrg_seg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2/slant6_trg_mask.nii.gz \
-  --fbrainmask /mnt/ssd3/Projects/fastcod/data/mtbi_demo/robex.nii.gz
 
 # run MODE 2
 singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
@@ -60,14 +50,7 @@ singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
   --fsrc_mask path/to/src_mask.nii.gz \
   --ftrg_seg path/to/trg_seg.nii.gz \
   --fbrainmask path/to/brainmask.nii.gz
-  
-#singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
-#  --fFOD /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn/wmfod.nii.gz \
-#  --dout /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn3 \
-#  --fsrc_mask /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2/tha_mask.nii.gz \
-#  --ftrg_seg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2/slant6_trg_mask.nii.gz \
-#  --fbrainmask /mnt/ssd3/Projects/fastcod/data/mtbi_demo/robex.nii.gz
-  
+
 ```
 
 ## MODE 1
@@ -93,7 +76,6 @@ python src/run_ConnectivityAnalysis.py \
   --fbrainmask data/mtbi_demo/robex.nii.gz
   [options]
 ```
-
 
 
 ## MODE 2
@@ -218,6 +200,30 @@ prepare_src_trg.py [-h] --seg_type {slant,freesurfer} --fseg FSEG --dout DOUT
    --dout DOUT           Output directory
 ```
 
+
+# Quality Assurance Checklist
+1. Check the orientation of your diffusion image. An easy way to check is to see if your tract.tck (the tractography) looks normal or not. An normal looking tractography should look like this:
+
+<img src="assets/QA_normal_tracts.png" width="500">
+
+A abnormal tracts could look like very different, for exmaple, something like this:
+
+<img src="assets/QA_abnormal_tracts.png" width="500">
+
+To debug, try to flip the bvec in x, y, or z direction. For example, if you want to flip in z direction, you can add
+`--bvec_flip z`, for example:
+```shell
+singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
+  --fdimg path/to/DWI_proc.nii \
+  --fbvec path/to/DWI_proc.bvecs \
+  --fbval path/to/DWI_proc.bvals \
+  --dout path/to/output/folder \
+  --fsrc_mask path/to/src_mask.nii.gz \
+  --ftrg_seg path/to/trg_seg.nii.gz \
+  --fbrainmask path/to/brainmask.nii.gz \
+  --bvec_flip z
+```
+
 # How to cite
 If you find this is useful for your research, please cite our paper:
 
@@ -230,8 +236,7 @@ If you find this is useful for your research, please cite our paper:
 }
 ```
 
-
 # Contact
-If you have any questions, please contact me at jasonbian.zx@gmail.com
+If you have any questions, please contact us at jasonbian.zx@gmail.com
 
 [Under Construction] For tutorial, blogs, and more information, please visit our [project page](https://jasonbian97.github.io/fastcod/)
