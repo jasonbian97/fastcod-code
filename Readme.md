@@ -1,6 +1,6 @@
 # FastCod
 
-This repo is the official implementation of paper: [FastCod: Fast Brain Connectivity in Diffusion Imaging](https://arxiv-export3.library.cornell.edu/abs/2302.09247)
+This repo is the official implementation of paper: [FastCod: Fast Brain Connectivity in Diffusion Imaging](https://arxiv.org/abs/2302.09247)
 This paper won the **best student paper runner-up award** in SPIE-MI 2023!
 
 **FastCod: Your Time-saving Beacon for Brain Connectivity**: 
@@ -228,11 +228,15 @@ singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
 If you find this is useful for your research, please cite our paper:
 
 ```bibtex
-@article{bian2023fastcod,
-  title={FastCod: Fast Brain Connectivity in Diffusion Imaging},
-  author={Bian, Zhangxing and Shao, Muhan and Zhuo, Jiachen and Gullapalli, Rao P and Carass, Aaron and Prince, Jerry L},
-  journal={arXiv preprint arXiv:2302.09247},
-  year={2023}
+@inproceedings{bian2023spieA,
+author    = {Z. Bian and M. Shao and J. Zhuo and R.~P. Gullapalli and 
+A. Carass and J.~L. Prince},
+title     = {{FastCod: Fast Brain Connectivity in Diffusion Imaging}},
+booktitle = {Proceedings of SPIE Medical Imaging~(SPIE-MI 2023), San 
+Diego, CA, February 19 -- 23, 2023},
+volume    = {12464}, 
+pages     = {124640P}, 
+year      = {2023},
 }
 ```
 
