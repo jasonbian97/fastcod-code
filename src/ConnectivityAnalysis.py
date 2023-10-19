@@ -122,7 +122,7 @@ class ConnectivityAnalysis(object):
             subprocess.run(f"dwi2fod msmt_csd {pre}/dwi.mif -mask {self.dout}/brain_mask_lowres.nii.gz \
                                 {pre}/wm.txt {pre}/wmfod.mif {pre}/gm.txt {pre}/gmfod.mif {pre}/csf.txt {pre}/csffod.mif",
                            shell=True, cwd = self.dout)
-            subprocess.run(f"mrconvert {pre}/wmfod.mif {self.dout}/wmfod.nii.gz -force", shell=True, cwd = pre)
+            subprocess.run(f"mrconvert {pre}/wmfod.mif {self.dout}/wmfod.nii.gz -force", shell=True, cwd = self.dout)
 
             fFOD = f"{self.dout}/wmfod.nii.gz"
 
