@@ -3,26 +3,26 @@
 This repo is the official implementation of paper: [FastCod: Fast Brain Connectivity in Diffusion Imaging](https://arxiv-export3.library.cornell.edu/abs/2302.09247)
 This paper won the **best student paper runner-up award** in SPIE-MI 2023!
 
-FastCod can efficiently compute the diffusion-based connectivity feature between brain regions. It is a open-source tool and written in python. If you use diffusion-weighted MRI and tractography in your research or clinical practice, this tool can possibly save you lots of time!
+**FastCod: Your Time-saving Beacon for Brain Connectivity**: 
+FastCod is a cutting-edge tool designed to rapidly compute diffusion-based connectivity features between brain regions. Developed as an open-source tool in Python, it presents an indispensable asset for researchers and professionals employing diffusion-weighted MRI and tractography.
 
 Key features:
 
-- Over 30x speedup than traditional method on computing connectivity
-- Run from command line, server-friendly
-- Easy to work with MRtrix3, fsl, and freesurfer
-- Flexible pipeline design: you can flexibly run one, several, or whole pipline: dMRI preprocessing, tractography, align with anatomical images, computing connectivity
-- Super-resolve ability: you can get high-res connectity features even if you are dealt with low resolution dMRI (e.g., 2mm)
-- Multiple visualization tools for QA
+- **Superior Speed**: Experience over 30x speedup in connectivity computations against traditional methods.
+- **Server Compatibility**: Designed for command line execution, optimizing server interactions.
+- **Super-resolve ability**: Even when working with low-resolution dMRI (e.g., 2mm), FastCod ensures high-resolution connectivity outputs.
+
 
 # How to use
 
 There are currently three modes that you can run FastCod
-- Mode 1 take raw diffusion image (and bvec, bval) as input.
-- Mode 2 assume you already have FOD image, which is used as input.
-- MODE 3 assumes you organize your data in the HCP dataset structure.
+- Mode 1 Take raw diffusion image (and bvec, bval) as input.
+- Mode 2 For users with an existing FOD image, which serves as the input.
+- MODE 3 Tailored for data organized in accordance with the HCP dataset structure.
 
-All of these three modes can be run with your own environment or with singularity container (recommended) [Download here](). 
-Here I listed useful commands and then I explained each mode in detail.
+Both native environments and the singularity container ([Download here]()) are supported for running FastCod. 
+
+Useful commands and detailed explanations for each mode are provided in the subsequent sections.
 
 
 ```shell
@@ -60,6 +60,7 @@ as target ROI. If you already have your src and trg ROI, you can skip this step 
 python src/prepare_src_trg.py --seg_type slant --fseg data/mtbi_demo/slant.nii.gz --dout data/mtbi_demo/conn
 ```
 Currently, we only support segmentation from [SLANT label](https://github.com/MASILab/SLANTbrainSeg/blob/master/BrainColorLUT.txt).
+
 -[ ] TODO: The freesurfer recon-all segmentation result is not supported yet.
 
 
@@ -79,7 +80,7 @@ python src/run_ConnectivityAnalysis.py \
 
 ## MODE 2
 
-If you have already has your FOD image, you can do
+If you already have your FOD image, you can do
 ```shell 
 python src/run_ConnectivityAnalysis.py \
   --fFOD data/mtbi_demo/conn/wmfod.nii.gz \
