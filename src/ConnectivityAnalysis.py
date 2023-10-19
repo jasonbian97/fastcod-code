@@ -115,14 +115,16 @@ class ConnectivityAnalysis(object):
             # run mrtrix FOD
             # note that "cwd = pre" is kinda key here because mrtirx by default will write temporary file in __file__
             # directory which is not permitted in singularity container, so we need to change the working directory.
+            # the above solution will cause dwi2response extremely slow.
+            # try adding -scratch to dwi2response
             print("===> running FOD...")
-            subprocess.run(f"mrconvert {fdimg} -fslgrad {fbvec} {fbval} {pre}/dwi.mif", shell=True, cwd = self.dout)
-            subprocess.run(f"dwi2response dhollander {pre}/dwi.mif {pre}/wm.txt {pre}/gm.txt {pre}/csf.txt",
-                           shell=True, cwd = self.dout)
+            subprocess.run(f"mrconvert {fdimg} -fslgrad {fbvec} {fbval} {pre}/dwi.mif", shell=True)
+            subprocess.run(f"dwi2response dhollander {pre}/dwi.mif {pre}/wm.txt {pre}/gm.txt {pre}/csf.txt -scratch {self.dout}",
+                           shell=True)
             subprocess.run(f"dwi2fod msmt_csd {pre}/dwi.mif -mask {self.dout}/brain_mask_lowres.nii.gz \
                                 {pre}/wm.txt {pre}/wmfod.mif {pre}/gm.txt {pre}/gmfod.mif {pre}/csf.txt {pre}/csffod.mif",
-                           shell=True, cwd = self.dout)
-            subprocess.run(f"mrconvert {pre}/wmfod.mif {self.dout}/wmfod.nii.gz -force", shell=True, cwd = self.dout)
+                           shell=True)
+            subprocess.run(f"mrconvert {pre}/wmfod.mif {self.dout}/wmfod.nii.gz -force", shell=True)
 
             fFOD = f"{self.dout}/wmfod.nii.gz"
 
