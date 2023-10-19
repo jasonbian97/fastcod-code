@@ -1,0 +1,18 @@
+defaults:
+  - alg: hcp # use alg/hcp.yaml as default
+  - io: hcp
+  - atlas: hcp
+  - _self_ # the config defined below this will override the default
+
+# check out the default config files (e.g., conf/io/hcp.yaml for more details
+
+io:
+  din: data/991267 # input directory. the data structure should be similar to the Human Connectome Project dataset. Please see Readme for more details,
+  dout: data/results/991267/run2 # output directory
+  subid: 991267 # subject id
+
+alg:
+  tr:
+    select: 500000
+  res: 1.125
+  dilate_roi: 0
