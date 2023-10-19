@@ -1,6 +1,0 @@
-din: ??? # ??? indicates that this field is required from user
-dout: ???
-subid: ???
-rm_exist: true # the default is true
-save_all: true
-
