@@ -20,7 +20,7 @@ There are currently three modes that you can run FastCod
 - Mode 2 For users with an existing FOD image, which serves as the input.
 - MODE 3 Tailored for data organized in accordance with the HCP dataset structure.
 
-Both native environments and the singularity container ([Download here]()) are supported for running FastCod. 
+Both native environments and the singularity container ([Download here](https://iacl.ece.jhu.edu/~zhangxing/fastcod/fastcod.sif)) are supported for running FastCod. 
 
 Useful commands and detailed explanations for each mode are provided in the subsequent sections.
 
