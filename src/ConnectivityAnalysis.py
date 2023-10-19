@@ -120,7 +120,7 @@ class ConnectivityAnalysis(object):
             print("===> running FOD...")
             subprocess.run(f"mrconvert {fdimg} -fslgrad {fbvec} {fbval} {pre}/dwi.mif", shell=True)
             subprocess.run(f"dwi2response dhollander -scratch {self.dout} {pre}/dwi.mif {pre}/wm.txt {pre}/gm.txt {pre}/csf.txt",
-                           shell=True)
+                           shell=True, cwd=self.dout)
             subprocess.run(f"dwi2fod msmt_csd {pre}/dwi.mif -mask {self.dout}/brain_mask_lowres.nii.gz \
                                 {pre}/wm.txt {pre}/wmfod.mif {pre}/gm.txt {pre}/gmfod.mif {pre}/csf.txt {pre}/csffod.mif",
                            shell=True)
