@@ -21,12 +21,11 @@ There are currently three modes that you can run FastCod
 - Mode 2 assume you already have FOD image, which is used as input.
 - MODE 3 assumes you organize your data in the HCP dataset structure.
 
-All of these three modes can be run with your own environment or with singularity container (recommended).
+All of these three modes can be run with your own environment or with singularity container (recommended) [Download here](). 
+Here I listed useful commands and then I explained each mode in detail.
+
 
 ```shell
-# build singularity image
-sudo singularity build fastcod.sif Singularity
-
 # check function help doc
 singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py --help
 singularity run -e -B /mnt fastcod.sif prepare_src_trg.py --help
@@ -206,7 +205,7 @@ prepare_src_trg.py [-h] --seg_type {slant,freesurfer} --fseg FSEG --dout DOUT
 
 <img src="assets/QA_normal_tracts.png" width="500">
 
-A abnormal tracts could look like very different, for exmaple, something like this:
+An abnormal tracts could look like very different, for exmaple, something like this:
 
 <img src="assets/QA_abnormal_tracts.png" width="500">
 
