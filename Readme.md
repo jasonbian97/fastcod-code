@@ -17,11 +17,11 @@ Key features:
 # How to use
 
 There are currently three modes that you can run FastCod
-- Mode 1 this will take your raw diffusion image (and bvec, bval) as input.
-- Mode 2 assume you already have FOD image.
+- Mode 1 take raw diffusion image (and bvec, bval) as input.
+- Mode 2 assume you already have FOD image, which is used as input.
 - MODE 3 assumes you organize your data in the HCP dataset structure.
 
-All of these three modes can be run with your own environment or with singularity container.
+All of these three modes can be run with your own environment or with singularity container (recommended).
 
 ```shell
 # build singularity image
@@ -32,18 +32,35 @@ singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py --help
 singularity run -e -B /mnt fastcod.sif prepare_src_trg.py --help
 
 # run MODE 1
-singularity run -e -B /mnt fastcod.sif prepare_src_trg.py --seg_type slant --fseg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/slant.nii.gz --dout /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2
+singularity run -e -B /mnt fastcod.sif prepare_src_trg.py --seg_type slant --fseg path/to/slant.nii.gz --dout path/to/output/folder
+#singularity run -e -B /mnt fastcod.sif prepare_src_trg.py --seg_type slant --fseg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/slant.nii.gz --dout /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2
+
 singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
-  --fdimg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/DWI_proc.nii \
-  --fbvec /mnt/ssd3/Projects/fastcod/data/mtbi_demo/DWI_proc.bvecs \
-  --fbval /mnt/ssd3/Projects/fastcod/data/mtbi_demo/DWI_proc.bvals \
-  --dout /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2 \
-  --fsrc_mask /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2/tha_mask.nii.gz \
-  --ftrg_seg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2/slant6_trg_mask.nii.gz \
-  --fbrainmask /mnt/ssd3/Projects/fastcod/data/mtbi_demo/robex.nii.gz
+  --fdimg path/to/DWI_proc.nii \
+  --fbvec path/to/DWI_proc.bvecs \
+  --fbval path/to/DWI_proc.bvals \
+  --dout path/to/output/folder \
+  --fsrc_mask path/to/src_mask.nii.gz \
+  --ftrg_seg path/to/trg_seg.nii.gz \
+  --fbrainmask path/to/brainmask.nii.gz
+  
+#singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
+#  --fdimg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/DWI_proc.nii \
+#  --fbvec /mnt/ssd3/Projects/fastcod/data/mtbi_demo/DWI_proc.bvecs \
+#  --fbval /mnt/ssd3/Projects/fastcod/data/mtbi_demo/DWI_proc.bvals \
+#  --dout /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2 \
+#  --fsrc_mask /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2/tha_mask.nii.gz \
+#  --ftrg_seg /mnt/ssd3/Projects/fastcod/data/mtbi_demo/conn2/slant6_trg_mask.nii.gz \
+#  --fbrainmask /mnt/ssd3/Projects/fastcod/data/mtbi_demo/robex.nii.gz
+
+# run MODE 2
+singularity run -e -B /mnt fastcod.sif run_ConnectivityAnalysis.py \
+  --fFOD path/to/wmfod.nii.gz \
+  --dout path/to/output/folder \
+  --fsrc_mask path/to/src_mask.nii.gz \
+  --ftrg_seg path/to/trg_seg.nii.gz \
+  --fbrainmask path/to/brainmask.nii.gz
 ```
-
-
 
 ## MODE 1
 
