@@ -106,17 +106,22 @@ class ConnectivityAnalysis(object):
 
             # downsample dMRI to accelerate process
             if self.down_res:
-                print("===> downsampling resolution of dMR and brain_mask to (2,2,2)...")
+                print(f"===> downsampling resolution of dMR to {self.down_res} isotropic")
                 target_affine = float(self.down_res) * np.eye(3) * np.sign(np.diag(dmri.affine[:3, :3]))
                 dmri = resample_img(dmri, target_affine=target_affine, interpolation='linear')
                 fdimg = f"{self.dout}/dwi_down_res_{self.down_res}.nii.gz"
                 nib.save(dmri, fdimg)
 
+            # downsample the brainmask to match the resolution of dMRI/FOD
+            _, _, brain_mask = load_nifti(self.fbrainmask, return_img=True)
+            brain_mask_lowres = resample_img(brain_mask, target_affine=dmri.affine, target_shape=dmri.shape[:3],
+                                             interpolation='nearest')
+            nib.save(brain_mask_lowres, f"{self.dout}/brain_mask_lowres.nii.gz")
+            nib.save(brain_mask, f"{self.dout}/brain_mask.nii.gz")
+
             # run mrtrix FOD
             # note that "cwd = pre" is kinda key here because mrtirx by default will write temporary file in __file__
-            # directory which is not permitted in singularity container, so we need to change the working directory.
-            # the above solution will cause dwi2response extremely slow.
-            # try adding -scratch to dwi2response
+            # directory which does not have writting permission in singularity container, so we need to change the working directory.
             print("===> running FOD...")
             subprocess.run(f"mrconvert {fdimg} -fslgrad {fbvec} {fbval} {pre}/dwi.mif", shell=True)
             subprocess.run(f"dwi2response dhollander -scratch {self.dout} {pre}/dwi.mif {pre}/wm.txt {pre}/gm.txt {pre}/csf.txt",
@@ -134,14 +139,7 @@ class ConnectivityAnalysis(object):
         else:
             raise ValueError("either fdimg or fFOD should be provided!")
 
-        _, _, fod = load_nifti(fFOD, return_img=True)
-
-        # downsample the brainmask to match the resolution of dMRI/FOD
-        _, _, brain_mask = load_nifti(self.fbrainmask, return_img=True)
-        brain_mask_lowres = resample_img(brain_mask, target_affine=fod.affine, target_shape=fod.shape[:3],
-                                         interpolation='nearest')
-        nib.save(brain_mask_lowres, f"{self.dout}/brain_mask_lowres.nii.gz")
-        nib.save(brain_mask, f"{self.dout}/brain_mask.nii.gz")
+        # _, _, fod = load_nifti(fFOD, return_img=True)
 
         # fsrc_bimask
         src_bimask = (src_mask > 0).astype(np.uint32)
