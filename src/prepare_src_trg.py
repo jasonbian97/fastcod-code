@@ -11,15 +11,16 @@ from argparse import ArgumentParser, Namespace
 
 def add_parser():
     parser = ArgumentParser()
-    parser.add_argument('--seg_type', type=str, required=True,
-                        help="Output directory", choices=["slant","freesurfer"])
+    parser.add_argument('--seg_type', type=str, required=True, metavar='slant/freesurfer',
+                        help="Type of segmentation", choices=["slant","freesurfer"])
     # input file
-    parser.add_argument('--fseg', type=str, required=True,
-                        help="segmetation file path")
+    parser.add_argument('--fseg', type=str, required=True, metavar='PATH',
+                        help="Segmentation file path")
     # dout
-    parser.add_argument('--dout', type=str, required=True,
+    parser.add_argument('--dout', type=str, required=True, metavar='DIR',
                         help="Output directory")
     return parser
+
 
 if __name__ == "__main__":
     parser = add_parser()

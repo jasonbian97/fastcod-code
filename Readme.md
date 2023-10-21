@@ -146,61 +146,44 @@ data/
 # Options
 For **run_ConnectivityAnalysis.py**, you can use the following options:
 ```shell
-run_ConnectivityAnalysis.py [-h] --dout DOUT --fsrc_mask FSRC_MASK --fbrainmask FBRAINMASK --ftrg_seg FTRG_SEG [--fdimg FDIMG] [--fbvec FBVEC]
-                                   [--fbval FBVAL] [--fFOD FFOD] [--exp_mode] [--tr_select TR_SELECT] [--tr_alg {iFOD2,iFOD1,SD_STREAM,Tensor_Det,Tensor_Prob}]
-                                   [--normalize_by_area NORMALIZE_BY_AREA] [--bvec_flip {x,y,z}] [--down_res DOWN_RES] [--tr_dilate_src TR_DILATE_SRC]
-                                   [--tr_dilate_trg TR_DILATE_TRG]
+usage: run_ConnectivityAnalysis.py [-h] --dout DIR --fsrc_mask PATH --fbrainmask PATH --ftrg_seg PATH [--fdimg PATH] [--fbvec PATH] [--fbval PATH]
+                                   [--fFOD PATH] [--exp_mode] [--tr_select NUM] [--tr_alg ALGORITHM] [--normalize_by_area] [--bvec_flip DIRECTION]
+                                   [--down_res RESOLUTION] [--tr_dilate_src VOXELS] [--tr_dilate_trg VOXELS]
 
-   --dout DOUT           Output directory
-   
-   --fsrc_mask FSRC_MASK
-                        Source mask file path
-                        
-   --fbrainmask FBRAINMASK
-                        Brain mask file path
-                        
-   --ftrg_seg FTRG_SEG   Target segmentation file path
-   
-   --fdimg FDIMG         Input diffusion image file path
-   
-   --fbvec FBVEC         b-vector file path
-   
-   --fbval FBVAL         b-value file path
-   
-   --fFOD FFOD           FOD image file path
-   
-   --exp_mode            Experiment mode
-   
-   --tr_select TR_SELECT
-                        number of streamlines
-                        
-   --tr_alg {iFOD2,iFOD1,SD_STREAM,Tensor_Det,Tensor_Prob}
-                        tracing algorithm
-                        
-   --normalize_by_area NORMALIZE_BY_AREA
-                        whether normalize counts by area of target region
-   
-   --bvec_flip {x,y,z}   Flip b-vector in x,y,z direction
-   
-   --down_res DOWN_RES   the target of downsampled resolution. This option only works when input is raw diffusion image
-   
-   --tr_dilate_src TR_DILATE_SRC
+optional arguments:
+  -h, --help            show this help message and exit
+  --dout DIR            Output directory
+  --fsrc_mask PATH      Source mask file path
+  --fbrainmask PATH     Brain mask file path
+  --ftrg_seg PATH       Target segmentation file path
+  --fdimg PATH          Input diffusion image file path
+  --fbvec PATH          b-vector file path
+  --fbval PATH          b-value file path
+  --fFOD PATH           FOD image file path
+  --exp_mode            Experiment mode
+  --tr_select NUM       number of streamlines
+  --tr_alg ALGORITHM    tracing algorithm
+  --normalize_by_area   whether normalize counts by area of target region
+  --bvec_flip DIRECTION
+                        Flip b-vector in x,y,z direction
+  --down_res RESOLUTION
+                        the target of downsampled resolution. This option only works when input is raw diffusion image
+  --tr_dilate_src VOXELS
                         Dilate source mask? If so, by how many voxels
-   
-   --tr_dilate_trg TR_DILATE_TRG
+  --tr_dilate_trg VOXELS
                         Dilate target mask? If so, by how many voxels
-
 ```
 
 For **prepare_src_trg.py**, you can use the following options:
 ```shell
-prepare_src_trg.py [-h] --seg_type {slant,freesurfer} --fseg FSEG --dout DOUT
-  
-   --seg_type {slant,freesurfer}
-   
-   --fseg FSEG           segmetation file path
-   
-   --dout DOUT           Output directory
+usage: prepare_src_trg.py [-h] --seg_type slant/freesurfer --fseg PATH --dout DIR
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --seg_type slant/freesurfer
+                        Type of segmentation
+  --fseg PATH           Segmentation file path
+  --dout DIR            Output directory
 ```
 
 

@@ -15,49 +15,52 @@ def lins(l,s):
             return True
     return False
 
+
 def add_parser():
     parser = ArgumentParser()
+
     # Required arguments
-    parser.add_argument('--dout', type=str, required=True,
+    parser.add_argument('--dout', type=str, required=True, metavar='DIR',
                         help="Output directory")
-    parser.add_argument('--fsrc_mask', type=str, required=True,
+    parser.add_argument('--fsrc_mask', type=str, required=True, metavar='PATH',
                         help="Source mask file path")
-    parser.add_argument('--fbrainmask', type=str, required=True,
+    parser.add_argument('--fbrainmask', type=str, required=True, metavar='PATH',
                         help="Brain mask file path")
-    parser.add_argument('--ftrg_seg', type=str, required=True,
+    parser.add_argument('--ftrg_seg', type=str, required=True, metavar='PATH',
                         help="Target segmentation file path")
 
-    # Complemetary arguments (either A or B)
-    parser.add_argument('--fdimg', type=str, default=None,
+    # Complementary arguments (either A or B)
+    parser.add_argument('--fdimg', type=str, default=None, metavar='PATH',
                         help="Input diffusion image file path")
-    parser.add_argument('--fbvec', type=str, default=None,
+    parser.add_argument('--fbvec', type=str, default=None, metavar='PATH',
                         help="b-vector file path")
-    parser.add_argument('--fbval', type=str, default=None,
+    parser.add_argument('--fbval', type=str, default=None, metavar='PATH',
                         help="b-value file path")
-
-    parser.add_argument('--fFOD', type=str, default=None,
+    parser.add_argument('--fFOD', type=str, default=None, metavar='PATH',
                         help="FOD image file path")
 
     # Optional arguments
     parser.add_argument('--exp_mode', action='store_true',
                         help="Experiment mode")
-    parser.add_argument('--tr_select', type=int, default=100000,
+    parser.add_argument('--tr_select', type=int, default=100000, metavar='NUM',
                         help="number of streamlines")
-    parser.add_argument('--tr_alg', type=str, default="iFOD2",
-                        choices=["iFOD2","iFOD1","SD_STREAM","Tensor_Det","Tensor_Prob"],
+    parser.add_argument('--tr_alg', type=str, default="iFOD2", metavar='ALGORITHM',
+                        choices=["iFOD2", "iFOD1", "SD_STREAM", "Tensor_Det", "Tensor_Prob"],
                         help="tracing algorithm")
-    parser.add_argument('--normalize_by_area', type=int, default=1,
+    parser.add_argument('--normalize_by_area', action="store_true",
                         help="whether normalize counts by area of target region")
-    parser.add_argument('--bvec_flip', type=str, default=None,
-                        help="Flip b-vector in x,y,z direction", choices=["x","y","z"])
-    parser.add_argument('--down_res', type=float, default=None,
+    parser.add_argument('--bvec_flip', type=str, default=None, metavar='DIRECTION',
+                        choices=["x", "y", "z"],
+                        help="Flip b-vector in x,y,z direction")
+    parser.add_argument('--down_res', type=float, default=None, metavar='RESOLUTION',
                         help="the target of downsampled resolution. This option only works when input is raw diffusion image")
-    parser.add_argument('--tr_dilate_src', type=int, default=0,
+    parser.add_argument('--tr_dilate_src', type=int, default=0, metavar='VOXELS',
                         help="Dilate source mask? If so, by how many voxels")
-    parser.add_argument('--tr_dilate_trg', type=int, default=0,
+    parser.add_argument('--tr_dilate_trg', type=int, default=0, metavar='VOXELS',
                         help="Dilate target mask? If so, by how many voxels")
 
     return parser
+
 
 from easydict import  EasyDict
 from pathlib import Path
