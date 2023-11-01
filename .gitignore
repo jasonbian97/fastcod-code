@@ -4,5 +4,4 @@ outputs
 *.simg
 *sandbox
 *.sif
-Singularity
 Readme_private.md
